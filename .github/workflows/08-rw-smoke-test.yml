@@ -1,22 +1,13 @@
-name: Reusable - Smoke Test
+name: Reusable - Smoke Test (ECS Service Health)
 
 on:
   workflow_call:
     inputs:
-      target-url:
-        description: "Base URL of the deployed environment (e.g. https://staging.myapp.com)"
-        required: true
-        type: string
-      health-path:
-        description: "Health check endpoint path"
+      aws-region:
+        description: "AWS region where the ECS service is running"
         required: false
         type: string
-        default: "/health"
-      expected-status:
-        description: "Expected HTTP response code"
-        required: false
-        type: string
-        default: "200"
+        default: "ap-south-1"
       retries:
         description: "Max retry attempts before failing"
         required: false
@@ -28,38 +19,67 @@ on:
         type: number
         default: 15
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   smoke-test:
-    name: Smoke test → ${{ inputs.target-url }}
+    name: ECS service health check
     runs-on: ubuntu-latest
 
     steps:
-      - name: Wait for service to stabilize
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ inputs.aws-region }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Wait for ECS to begin rollout
         run: sleep 20
 
-      - name: Health check with retries
+      - name: Check ECS service health with retries
         run: |
-          URL="${{ inputs.target-url }}${{ inputs.health-path }}"
-          EXPECTED="${{ inputs.expected-status }}"
           MAX=${{ inputs.retries }}
           DELAY=${{ inputs.retry-delay-seconds }}
 
-          echo "Checking: $URL (expecting HTTP $EXPECTED)"
+          echo "Cluster : ${{ secrets.ECS_CLUSTER_NAME }}"
+          echo "Service : ${{ secrets.ECS_SERVICE_NAME }}"
 
           for i in $(seq 1 $MAX); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" --max-time 10 || echo "000")
-            echo "Attempt $i/$MAX → HTTP $STATUS"
+            echo ""
+            echo "Attempt $i/$MAX — querying ECS service..."
 
-            if [ "$STATUS" = "$EXPECTED" ]; then
-              echo "Smoke test passed."
+            RESULT=$(aws ecs describe-services \
+              --cluster "${{ secrets.ECS_CLUSTER_NAME }}" \
+              --services "${{ secrets.ECS_SERVICE_NAME }}" \
+              --query 'services[0].{running:runningCount,desired:desiredCount,state:deployments[0].rolloutState,status:status}' \
+              --output json)
+
+            RUNNING=$(echo "$RESULT" | jq -r '.running')
+            DESIRED=$(echo "$RESULT" | jq -r '.desired')
+            STATE=$(echo "$RESULT"   | jq -r '.state')
+            STATUS=$(echo "$RESULT"  | jq -r '.status')
+
+            echo "  Service status  : $STATUS"
+            echo "  Running / Desired: $RUNNING / $DESIRED"
+            echo "  Deployment state: $STATE"
+
+            if [ "$STATUS" = "ACTIVE" ] && \
+               [ "$RUNNING" = "$DESIRED" ] && \
+               [ "$STATE" = "COMPLETED" ]; then
+              echo ""
+              echo "Smoke test passed — ECS service is healthy."
               exit 0
             fi
 
             if [ $i -lt $MAX ]; then
-              echo "Waiting ${DELAY}s before retry..."
+              echo "  Not ready yet. Waiting ${DELAY}s before retry..."
               sleep $DELAY
             fi
           done
 
-          echo "::error::Smoke test FAILED after $MAX attempts. Last status: $STATUS"
+          echo ""
+          echo "::error::Smoke test FAILED after $MAX attempts."
+          echo "::error::Last state — Running=$RUNNING, Desired=$DESIRED, Deployment=$STATE, Status=$STATUS"
           exit 1
