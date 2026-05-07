@@ -1,0 +1,65 @@
+name: Reusable - Smoke Test
+
+on:
+  workflow_call:
+    inputs:
+      target-url:
+        description: "Base URL of the deployed environment (e.g. https://staging.myapp.com)"
+        required: true
+        type: string
+      health-path:
+        description: "Health check endpoint path"
+        required: false
+        type: string
+        default: "/health"
+      expected-status:
+        description: "Expected HTTP response code"
+        required: false
+        type: string
+        default: "200"
+      retries:
+        description: "Max retry attempts before failing"
+        required: false
+        type: number
+        default: 5
+      retry-delay-seconds:
+        description: "Wait time in seconds between retries"
+        required: false
+        type: number
+        default: 15
+
+jobs:
+  smoke-test:
+    name: Smoke test → ${{ inputs.target-url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait for service to stabilize
+        run: sleep 20
+
+      - name: Health check with retries
+        run: |
+          URL="${{ inputs.target-url }}${{ inputs.health-path }}"
+          EXPECTED="${{ inputs.expected-status }}"
+          MAX=${{ inputs.retries }}
+          DELAY=${{ inputs.retry-delay-seconds }}
+
+          echo "Checking: $URL (expecting HTTP $EXPECTED)"
+
+          for i in $(seq 1 $MAX); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" --max-time 10 || echo "000")
+            echo "Attempt $i/$MAX → HTTP $STATUS"
+
+            if [ "$STATUS" = "$EXPECTED" ]; then
+              echo "Smoke test passed."
+              exit 0
+            fi
+
+            if [ $i -lt $MAX ]; then
+              echo "Waiting ${DELAY}s before retry..."
+              sleep $DELAY
+            fi
+          done
+
+          echo "::error::Smoke test FAILED after $MAX attempts. Last status: $STATUS"
+          exit 1
