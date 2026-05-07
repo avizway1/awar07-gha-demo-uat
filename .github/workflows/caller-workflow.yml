@@ -132,10 +132,9 @@ jobs:
   # ════════════════════════════════════════════════════════════════════════════
   # STAGE 6 — Smoke Test
   #
-  # Hits the staging health endpoint after deploy to confirm the service
-  # is responding. Retries up to 5 times with a 15s delay between attempts.
-  #
-  # Requires: vars.STAGING_URL set in repo Settings → Variables
+  # Queries ECS via AWS CLI to confirm the service is ACTIVE,
+  # runningCount == desiredCount, and the latest deployment is COMPLETED.
+  # No load balancer required.
   # ════════════════════════════════════════════════════════════════════════════
 
   smoke-test:
@@ -147,9 +146,7 @@ jobs:
       inputs.skip-deploy != true
     uses: ./.github/workflows/08-rw-smoke-test.yml
     with:
-      target-url: ${{ vars.STAGING_URL }}
-      health-path: /health
-      expected-status: "200"
+      aws-region: ap-south-1
       retries: 5
       retry-delay-seconds: 15
     secrets: inherit
