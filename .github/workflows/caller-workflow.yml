@@ -8,10 +8,10 @@ name: Enterprise CI/CD Pipeline
 # Production deployment is intentionally decoupled from this pipeline.
 # Use 00-caller-prod-deploy.yml after a minimum 3-week staging observation.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+#  push:
+#    branches: [main]
+#  pull_request:
+#    branches: [main]
   workflow_dispatch:
     inputs:
       skip-deploy:
