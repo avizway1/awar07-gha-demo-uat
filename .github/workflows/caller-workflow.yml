@@ -43,19 +43,19 @@ jobs:
 
   secret-scan:
     name: "[S1] Secret Scan"
-    uses: ./.github/workflows/reusable/01-rw-secret-scan.yml
+    uses: ./.github/workflows/01-rw-secret-scan.yml
     secrets: inherit
 
   code-quality:
     name: "[S1] Code Quality"
-    uses: ./.github/workflows/reusable/02-rw-code-quality.yml
+    uses: ./.github/workflows/02-rw-code-quality.yml
     with:
       python-version: "3.12"
     secrets: inherit
 
   sonar-scan:
     name: "[S1] SonarCloud"
-    uses: ./.github/workflows/reusable/03-rw-sonar-scan.yml
+    uses: ./.github/workflows/03-rw-sonar-scan.yml
     with:
       python-version: "3.12"
     secrets: inherit
@@ -71,7 +71,7 @@ jobs:
   unit-tests:
     name: "[S2] Unit & Integration Tests"
     needs: [secret-scan, code-quality, sonar-scan]
-    uses: ./.github/workflows/reusable/07-rw-unit-tests.yml
+    uses: ./.github/workflows/07-rw-unit-tests.yml
     with:
       python-version: "3.12"
     secrets: inherit
@@ -86,7 +86,7 @@ jobs:
   docker-build:
     name: "[S3] Docker Build & Push → ECR"
     needs: unit-tests
-    uses: ./.github/workflows/reusable/04-rw-docker-build-push.yml
+    uses: ./.github/workflows/04-rw-docker-build-push.yml
     with:
       aws-region: ap-south-1
     secrets: inherit
@@ -101,7 +101,7 @@ jobs:
   image-scan:
     name: "[S4] Image Vulnerability Scan"
     needs: docker-build
-    uses: ./.github/workflows/reusable/05-rw-image-scan.yml
+    uses: ./.github/workflows/05-rw-image-scan.yml
     with:
       aws-region: ap-south-1
       severity: "CRITICAL,HIGH"
@@ -123,7 +123,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request' &&
       inputs.skip-deploy != true
-    uses: ./.github/workflows/reusable/06-rw-deploy-ecs.yml
+    uses: ./.github/workflows/06-rw-deploy-ecs.yml
     with:
       environment: staging
       aws-region: ap-south-1
@@ -145,7 +145,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request' &&
       inputs.skip-deploy != true
-    uses: ./.github/workflows/reusable/08-rw-smoke-test.yml
+    uses: ./.github/workflows/08-rw-smoke-test.yml
     with:
       target-url: ${{ vars.STAGING_URL }}
       health-path: /health
@@ -170,7 +170,7 @@ jobs:
     name: "[S7] Notify Slack"
     needs: [secret-scan, code-quality, sonar-scan, unit-tests, docker-build, image-scan, deploy-staging, smoke-test]
     if: always()
-    uses: ./.github/workflows/reusable/09-rw-notify-slack.yml
+    uses: ./.github/workflows/09-rw-notify-slack.yml
     with:
       status: ${{ contains(needs.*.result, 'failure') && 'failure' || contains(needs.*.result, 'cancelled') && 'cancelled' || 'success' }}
       pipeline-name: "Enterprise CI/CD Pipeline"
