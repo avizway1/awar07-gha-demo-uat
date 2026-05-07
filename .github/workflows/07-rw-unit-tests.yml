@@ -36,16 +36,27 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run tests with coverage
-        run: pytest --cov=. --cov-report=xml --cov-report=term-missing
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=term-missing
+          EXIT=$?
+          if [ $EXIT -eq 5 ]; then
+            echo "::error::No test files found. Add test_*.py files to the repository."
+            exit 1
+          fi
+          exit $EXIT
 
       - name: Extract coverage percentage
         id: coverage
+        if: always()
         run: |
+          if [ ! -f coverage.xml ]; then
+            echo "pct=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           PCT=$(python -c "
           import xml.etree.ElementTree as ET
-          tree = ET.parse('coverage.xml')
-          root = tree.getroot()
-          print(round(float(root.attrib['line-rate']) * 100, 1))
+          root = ET.parse('coverage.xml').getroot()
+          print(round(float(root.attrib.get('line-rate', 0)) * 100, 1))
           ")
           echo "pct=$PCT" >> $GITHUB_OUTPUT
           echo "Coverage: $PCT%"
