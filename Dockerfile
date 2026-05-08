@@ -4,6 +4,18 @@
 
 FROM python:3.12-slim
 
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    libcap2 \
+    libncursesw6 \
+    libsystemd0 \
+    libtinfo6 \
+    libudev1 \
+    ncurses-base \
+    ncurses-bin && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Metadata labels — good practice, helps identify images in Docker Hub
 LABEL maintainer="avizacademy.com"
 LABEL batch="batch-8"
