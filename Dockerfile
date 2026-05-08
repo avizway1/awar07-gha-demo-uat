@@ -6,13 +6,13 @@ FROM python:3.12-slim
 
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-    libcap2 \
-    libncursesw6 \
-    libsystemd0 \
-    libtinfo6 \
-    libudev1 \
-    ncurses-base \
-    ncurses-bin && \
+    libcap2=1:2.78-1 \
+    libncursesw6=6.5+20251213-1 \
+    libsystemd0=257.11-1 \
+    libtinfo6=6.5+20251213-1 \
+    libudev1=257.11-1 \
+    ncurses-base=6.5+20251213-1 \
+    ncurses-bin=6.5+20251213-1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
