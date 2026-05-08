@@ -117,7 +117,7 @@ jobs:
   # ════════════════════════════════════════════════════════════════════════════
 
   deploy-staging:
-    name: "[S5] Deploy → Staging"
+    name: "[S5] Deploy to ECS"
     needs: image-scan
     if: >
       github.ref == 'refs/heads/main' &&
@@ -138,7 +138,7 @@ jobs:
   # ════════════════════════════════════════════════════════════════════════════
 
   smoke-test:
-    name: "[S6] Smoke Test → Staging"
+    name: "[S6] Smoke Test"
     needs: deploy-staging
     if: >
       github.ref == 'refs/heads/main' &&
